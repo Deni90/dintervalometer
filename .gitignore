@@ -1,0 +1,12 @@
+#Ignore list for Eagle
+*.s#?
+*.b#?
+
+#Ignore list for AVR
+.dep
+*.eep
+*.elf
+*.hex
+*.lss
+*.map
+*.o
