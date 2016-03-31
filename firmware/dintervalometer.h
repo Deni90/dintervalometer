@@ -77,7 +77,6 @@ typedef enum state_e {
     OFF,
     INTERVALOMETER,
     BULB_MODE,
-    SENSOR,
     INIT,
     NUM_OF_STATES
 } state_t;
