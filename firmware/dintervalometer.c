@@ -122,6 +122,7 @@ bulb_mode_t bulb_mode_temp_data = { 0, 0 };
 uint8_t bulb_mode_pre_start = FALSE;
 uint8_t number_part = 0;
 settings_t settings_data;
+uint16_t battery_voltage = 0;
 
 // State functions
 state_t STATE_init(void);
@@ -340,7 +341,12 @@ state_t STATE_init(void) {
     while (USB_PWR_PIN & (1 << USB_PWR_IO))
         ;
 
-    LCD_update_battery_icon(BATTERY_read_voltage());
+    battery_voltage = BATTERY_read_voltage();
+    if (battery_voltage < settings_data.battery_auto_cutoff) {
+        LCD_show_low_battery_alert();
+        STATE_turn_off();
+    }
+    LCD_update_battery_icon(battery_voltage);
     LCD_goto(0, 2);
     // show help message to turn on the device
     LCD_puts(turn_on_message_str, LCD_TYP_NORM);
@@ -367,7 +373,7 @@ state_t STATE_init(void) {
             uint8_t i;
             // Show initial progress bar and battery icon
             LCD_clear();
-            LCD_update_battery_icon(BATTERY_read_voltage());
+            LCD_update_battery_icon(battery_voltage);
             LCD_goto(10, 2);
             for (i = 0; i < 64; i++) {
                 if (i == 0 || i == 63)
@@ -410,7 +416,7 @@ state_t STATE_main_menu(void) {
     PCICR &= ~(1 << PCIE1); // Disable PIN Change Interrupt 1 - This disables Interrupt 1 - This enables interrupts on pins PCINT14...8 see p73 of datasheet
     // main menu
     LCD_clear();
-    LCD_update_battery_icon(BATTERY_read_voltage());
+    LCD_update_battery_icon(battery_voltage);
     menu_size = 4;
     // menu title
     LCD_puts(main_menu_title_str, LCD_TYP_UP2);
@@ -484,7 +490,7 @@ state_t STATE_intervalometer_menu(void) {
     PCICR &= ~(1 << PCIE1); // Disable PIN Change Interrupt 1 - This disables interrupts on pins PCINT14...8 see p73 of datasheet
     LCD_clear();
     // draw battery icon with actual battery state
-    LCD_update_battery_icon(BATTERY_read_voltage());
+    LCD_update_battery_icon(battery_voltage);
     // menu title
     LCD_puts(intervalometer_menu_title_str,
     LCD_TYP_UP2);
@@ -829,7 +835,7 @@ state_t STATE_intervalometer(void) {
         // print initial data to LCD
         LCD_clear();
         // draw battery icon with actual battery state
-        LCD_update_battery_icon(BATTERY_read_voltage());
+        LCD_update_battery_icon(battery_voltage);
         // menu title
         LCD_puts(intervalometer_menu_title_str, LCD_TYP_UP2);
         if (intervalometer_temp_data.delay) {
@@ -1021,7 +1027,7 @@ state_t STATE_bulb_mode_menu(void) {
     PCICR &= ~(1 << PCIE1); // Disable PIN Change Interrupt 1 - This disables interrupts on pins PCINT14...8 see p73 of datasheet
     LCD_clear();
     // draw battery icon with actual battery state
-    LCD_update_battery_icon(BATTERY_read_voltage());
+    LCD_update_battery_icon(battery_voltage);
     // menu title
     LCD_puts(bulb_mode_menu_title_str,
     LCD_TYP_UP2);
@@ -1300,7 +1306,7 @@ state_t STATE_bulb_mode(void) {
         bulb_mode_temp_data = bulb_mode_data;
         LCD_clear();
         // draw battery icon with actual battery state
-        LCD_update_battery_icon(BATTERY_read_voltage());
+        LCD_update_battery_icon(battery_voltage);
         // menu title
         LCD_puts(bulb_mode_menu_title_str,
         LCD_TYP_UP2);
@@ -1417,7 +1423,7 @@ state_t STATE_settings_menu(void) {
     PCICR &= ~(1 << PCIE1); // Disable PIN Change Interrupt 1 - This disables interrupts on pins PCINT14...8 see p73 of datasheet
     LCD_clear();
     // draw battery icon with actual battery state
-    LCD_update_battery_icon(BATTERY_read_voltage());
+    LCD_update_battery_icon(battery_voltage);
     menu_size = 2;
     // menu title
     LCD_puts(settings_menu_title_str,
@@ -1437,15 +1443,7 @@ state_t STATE_settings_menu(void) {
                 LCD_TYP_INV :
                                                                   LCD_TYP_NORM);
     } else {
-        LCD_putc(' ',
-                (selected_menu_item == 0 && (is_blinking == 0)) ?
-                LCD_TYP_INV :
-                                                                  LCD_TYP_NORM);
-        LCD_putc(' ',
-                (selected_menu_item == 0 && (is_blinking == 0)) ?
-                LCD_TYP_INV :
-                                                                  LCD_TYP_NORM);
-        LCD_writeUnsignedValue((settings_data.backlight_intensity + 1) / 64,
+        LCD_puts(on_str,
                 (selected_menu_item == 0 && (is_blinking == 0)) ?
                 LCD_TYP_INV :
                                                                   LCD_TYP_NORM);
@@ -1502,12 +1500,9 @@ state_t STATE_settings_menu(void) {
             switch (selected_menu_item) {
             // backlight
             case 0:
-                if (settings_data.backlight_intensity == 255) {
-                    settings_data.backlight_intensity = 0;
-                } else {
-                    settings_data.backlight_intensity +=
-                            (settings_data.backlight_intensity == 0) ? 63 : 64;
-                }
+                settings_data.backlight_intensity =
+                        (settings_data.backlight_intensity != 0) ?
+                                0 : BACKLIGHT_INTENSITY;
                 break;
             case 1:
                 // auto cutoff
@@ -1529,12 +1524,9 @@ state_t STATE_settings_menu(void) {
             switch (selected_menu_item) {
             // backlight
             case 0:
-                if (settings_data.backlight_intensity == 0) {
-                    settings_data.backlight_intensity = 255;
-                } else {
-                    settings_data.backlight_intensity -=
-                            (settings_data.backlight_intensity == 63) ? 63 : 64;
-                }
+                settings_data.backlight_intensity =
+                        (settings_data.backlight_intensity == 0) ?
+                                BACKLIGHT_INTENSITY : 0;
                 break;
                 // auto cutoff
             case 1:
@@ -1622,15 +1614,13 @@ uint16_t BATTERY_read_voltage(void) {
 }
 
 void BATTERY_monitor(void) {
-    uint16_t battery_voltage = 0;
-
     if (battery_check_timer >= BATTERY_MONITOR_PERIOD) {
         battery_check_timer = 0;    // reset timer
         battery_voltage = BATTERY_read_voltage(); // read battery status
         LCD_update_battery_icon(battery_voltage);   // draw battery icon
         if (battery_voltage <= settings_data.battery_auto_cutoff) {
             LCD_show_low_battery_alert();
-//            turn_off();   // TODO uncomment me
+            STATE_turn_off();
         }
     }
 }

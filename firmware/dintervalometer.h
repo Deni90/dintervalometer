@@ -60,14 +60,16 @@
 #define BACKLIGHT_PIN           PIND
 #define BACKLIGHT_PORT          PORTD
 #define BACKLIGHT_IO            PD3
-#define BACKLIGHT_DURATION      10000    // millisecond
+#define BACKLIGHT_DURATION      10000   // millisecond
 
-#define BLINK_PERIOD           1000    // millisecons
+#define BLINK_PERIOD           1000     // millisecons
 #define ICON_WIDTH              8
 
 #define MAX_BATTERY_VOLTAGE     4200    // mV
-#define MIN_BATTERY_VOLTAGE     3600    //mV
+#define MIN_BATTERY_VOLTAGE     3600    // mV
 #define BATTERY_MONITOR_PERIOD  60000   // milliseconds
+
+#define BACKLIGHT_INTENSITY     63
 
 typedef enum state_e {
     MAIN_MENU = 0,
