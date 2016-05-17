@@ -1610,6 +1610,10 @@ uint16_t BATTERY_read_voltage(void) {
         ;
     read_value = (ADCL | (ADCH << 8));
 // voltage divider R1 = 10k, R2 = 3k3, ADC: 1v1/1024=1.0742mV
+
+// FIX when left button is pressed PN junction voltage must be added to read value
+    if (!(LEFT_BUTTON_PIN & (1 << LEFT_BUTTON_IO)))
+        return floor((13300 * 1.0742 * read_value) / 3300) + PN_JUNCTION;
     return floor((13300 * 1.0742 * read_value) / 3300);
 }
 

@@ -69,6 +69,8 @@
 #define MIN_BATTERY_VOLTAGE     3600    // mV
 #define BATTERY_MONITOR_PERIOD  60000   // milliseconds
 
+#define PN_JUNCTION             600     // mV
+
 #define BACKLIGHT_INTENSITY     63
 
 typedef enum state_e {
